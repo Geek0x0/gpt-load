@@ -34,6 +34,21 @@ func NewProvider(db *gorm.DB, store store.Store, settingsManager *config.SystemS
 	}
 }
 
+// CheckRateLimit checks whether the given group has exceeded its per-minute request limit.
+// It returns true (allowed) when the limit has not been reached or when rpm <= 0 (disabled).
+func (p *KeyProvider) CheckRateLimit(groupID uint, rpm int) (bool, error) {
+	if rpm <= 0 {
+		return true, nil
+	}
+	minute := time.Now().Unix() / 60
+	rateLimitKey := fmt.Sprintf("group:%d:rate_limit:%d", groupID, minute)
+	count, err := p.store.Incr(rateLimitKey, 2*time.Minute)
+	if err != nil {
+		return true, fmt.Errorf("failed to check rate limit for group %d: %w", groupID, err)
+	}
+	return count <= int64(rpm), nil
+}
+
 // SelectKey 为指定的分组原子性地选择并轮换一个可用的 APIKey。
 func (p *KeyProvider) SelectKey(groupID uint) (*models.APIKey, error) {
 	activeKeysListKey := fmt.Sprintf("group:%d:active_keys", groupID)

@@ -55,6 +55,10 @@ type Store interface {
 	SAdd(key string, members ...any) error
 	SPopN(key string, count int64) ([]string, error)
 
+	// Incr atomically increments an integer counter by 1 and returns the new value.
+	// The TTL is only set when the key is created for the first time (counter == 1).
+	Incr(key string, ttl time.Duration) (int64, error)
+
 	// Close closes the store and releases any underlying resources.
 	Close() error
 

@@ -13,6 +13,12 @@ type memoryStoreItem struct {
 	expiresAt int64 // Unix-nano timestamp. 0 for no expiry.
 }
 
+// memoryCounterItem holds an integer counter and its expiration timestamp.
+type memoryCounterItem struct {
+	count     int64
+	expiresAt int64 // Unix-nano timestamp. 0 for no expiry.
+}
+
 // MemoryStore is an in-memory key-value store that is safe for concurrent use.
 type MemoryStore struct {
 	mu            sync.RWMutex
@@ -318,6 +324,35 @@ func (s *MemoryStore) LLen(key string) (int64, error) {
 	}
 
 	return int64(len(list)), nil
+}
+
+// --- COUNTER operations ---
+
+// Incr atomically increments an integer counter and sets the TTL on first creation.
+func (s *MemoryStore) Incr(key string, ttl time.Duration) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UnixNano()
+
+	var counter memoryCounterItem
+	if rawItem, exists := s.data[key]; exists {
+		if c, ok := rawItem.(memoryCounterItem); ok {
+			// Treat as new if expired
+			if c.expiresAt == 0 || now < c.expiresAt {
+				counter = c
+			}
+		}
+	}
+
+	counter.count++
+	// Only set the expiry when creating the counter for the first time
+	if counter.count == 1 && ttl > 0 {
+		counter.expiresAt = now + ttl.Nanoseconds()
+	}
+
+	s.data[key] = counter
+	return counter.count, nil
 }
 
 // --- SET operations ---

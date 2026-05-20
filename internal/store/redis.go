@@ -127,6 +127,28 @@ func (s *RedisStore) LLen(key string) (int64, error) {
 	return s.client.LLen(context.Background(), s.prefixKey(key)).Result()
 }
 
+// --- COUNTER operations ---
+
+// incrScript atomically increments a counter and sets the TTL only on first creation.
+var incrScript = redis.NewScript(`
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`)
+
+// Incr atomically increments an integer counter and sets the TTL on first creation.
+func (s *RedisStore) Incr(key string, ttl time.Duration) (int64, error) {
+	result, err := incrScript.Run(
+		context.Background(),
+		s.client,
+		[]string{s.prefixKey(key)},
+		int(ttl.Seconds()),
+	).Int64()
+	return result, err
+}
+
 // --- SET operations ---
 
 func (s *RedisStore) SAdd(key string, members ...any) error {
