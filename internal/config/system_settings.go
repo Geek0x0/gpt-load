@@ -425,6 +425,8 @@ func (sm *SystemSettingsManager) DisplaySystemConfig(settings types.SystemSettin
 
 	logrus.Info("  --- Key & Group Behavior ---")
 	logrus.Infof("    Max Retries: %d", settings.MaxRetries)
+	logrus.Infof("    Enable Key Fallback: %v", settings.EnableKeyFallback)
+	logrus.Infof("    Rate Limit RPM: %d", settings.RateLimitRPM)
 	logrus.Infof("    Blacklist Threshold: %d", settings.BlacklistThreshold)
 	logrus.Infof("    Failover Status Codes: %s", settings.FailoverStatusCodes)
 	logrus.Infof("    Key Validation Interval: %d minutes", settings.KeyValidationIntervalMinutes)

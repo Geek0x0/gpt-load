@@ -94,6 +94,17 @@ func (ps *ProxyServer) HandleProxy(c *gin.Context) {
 		return
 	}
 
+	// Check per-group rate limit before forwarding to the upstream provider
+	if group.EffectiveConfig.RateLimitRPM > 0 {
+		allowed, rlErr := ps.keyProvider.CheckRateLimit(group.ID, group.EffectiveConfig.RateLimitRPM)
+		if rlErr != nil {
+			logrus.Warnf("Rate limit check failed for group %s: %v", group.Name, rlErr)
+		} else if !allowed {
+			response.Error(c, app_errors.ErrRateLimitExceeded)
+			return
+		}
+	}
+
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		logrus.Errorf("Failed to read request body: %v", err)
@@ -202,8 +213,10 @@ func (ps *ProxyServer) executeRequestWithRetry(
 
 	// Unified error handling for retries.
 	// Retry policy is fully defined by group.FailoverStatusCodeMatcher (derived from EffectiveConfig).
+	// When EnableKeyFallback is true, any HTTP error (status >= 400) also triggers a key switch.
 	shouldRetryByStatus := resp != nil && shouldFailoverOnStatusCode(resp.StatusCode, group)
-	if err != nil || shouldRetryByStatus {
+	shouldFallbackOnHTTPError := cfg.EnableKeyFallback && resp != nil && resp.StatusCode >= 400
+	if err != nil || shouldRetryByStatus || shouldFallbackOnHTTPError {
 		if err != nil && app_errors.IsIgnorableError(err) {
 			logrus.Debugf("Client-side ignorable error for key %s, aborting retries: %v", utils.MaskAPIKey(apiKey.KeyValue), err)
 			ps.logRequest(c, originalGroup, group, apiKey, startTime, 499, err, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal)
