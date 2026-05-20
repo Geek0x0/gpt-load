@@ -40,7 +40,7 @@ func (p *KeyProvider) CheckRateLimit(groupID uint, rpm int) (bool, error) {
 	if rpm <= 0 {
 		return true, nil
 	}
-	minute := time.Now().Unix() / 60
+	minute := time.Now().Unix() / 60 // current minute bucket for rate limiting
 	rateLimitKey := fmt.Sprintf("group:%d:rate_limit:%d", groupID, minute)
 	count, err := p.store.Incr(rateLimitKey, 2*time.Minute)
 	if err != nil {

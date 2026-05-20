@@ -215,8 +215,8 @@ func (ps *ProxyServer) executeRequestWithRetry(
 	// Retry policy is fully defined by group.FailoverStatusCodeMatcher (derived from EffectiveConfig).
 	// When EnableKeyFallback is true, any HTTP error (status >= 400) also triggers a key switch.
 	shouldRetryByStatus := resp != nil && shouldFailoverOnStatusCode(resp.StatusCode, group)
-	shouldFallbackOnAnyError := cfg.EnableKeyFallback && resp != nil && resp.StatusCode >= 400
-	if err != nil || shouldRetryByStatus || shouldFallbackOnAnyError {
+	shouldFallbackOnHTTPError := cfg.EnableKeyFallback && resp != nil && resp.StatusCode >= 400
+	if err != nil || shouldRetryByStatus || shouldFallbackOnHTTPError {
 		if err != nil && app_errors.IsIgnorableError(err) {
 			logrus.Debugf("Client-side ignorable error for key %s, aborting retries: %v", utils.MaskAPIKey(apiKey.KeyValue), err)
 			ps.logRequest(c, originalGroup, group, apiKey, startTime, 499, err, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal)
